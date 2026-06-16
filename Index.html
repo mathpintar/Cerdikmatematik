@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CERDIK MATEMATIK</title>
+
+  <!-- Font -->
+  <link rel="preconnect" href="[fonts.googleapis.com](https://fonts.googleapis.com)">
+  <link rel="preconnect" href="[fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
+  <link href="[fonts.googleapis.com](https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap)" rel="stylesheet">
+
+  <!-- React -->
+  <script crossorigin src="[unpkg.com](https://unpkg.com/react@18/umd/react.development.js)"></script>
+  <script crossorigin src="[unpkg.com](https://unpkg.com/react-dom@18/umd/react-dom.development.js)"></script>
+
+  <!-- Babel -->
+  <script src="[unpkg.com](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
+
+  <!-- Tailwind -->
+  <script src="[cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Baloo 2"', 'cursive'],
+            body: ['Nunito', 'sans-serif']
+          },
+          colors: {
+            brand: {
+              yellow: '#FFD93D',
+              orange: '#FF9F1C',
+              pink: '#FF5DA2',
+              purple: '#7C5CFF',
+              blue: '#38BDF8',
+              mint: '#34D399',
+              soft: '#F8FBFF',
+              ink: '#20304A'
+            }
+          },
+          keyframes: {
+            pop: {
+              '0%': { transform: 'scale(0.95)', opacity: 0.8 },
+              '60%': { transform: 'scale(1.05)', opacity: 1 },
+              '100%': { transform: 'scale(1)', opacity: 1 }
+            },
+            shake: {
+              '0%,100%': { transform: 'translateX(0)' },
+              '20%': { transform: 'translateX(-5px)' },
+              '40%': { transform: 'translateX(5px)' },
+              '60%': { transform: 'translateX(-3px)' },
+              '80%': { transform: 'translateX(3px)' }
+            },
+            floaty: {
+              '0%,100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-6px)' }
+            },
+            glow: {
+              '0%,100%': { boxShadow: '0 0 0 rgba(124,92,255,0)' },
+              '50%': { boxShadow: '0 0 25px rgba(124,92,255,0.25)' }
+            }
+          },
+          animation: {
+            pop: 'pop 0.25s ease-out',
+            shake: 'shake 0.3s ease-in-out',
+            floaty: 'floaty 2s ease-in-out infinite',
+            glow: 'glow 1.8s ease-in-out infinite'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html, body, #root {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255,217,61,0.25), transparent 30%),
+        radial-gradient(circle at top right, rgba(124,92,255,0.18), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(52,211,153,0.18), transparent 30%),
+        linear-gradient(180deg, #f9fbff 0%, #eef7ff 100%);
+      color: #20304A;
+    }
+
+    .title-font {
+      font-family: 'Baloo 2', cursive;
+    }
+
+    .math-grid-bg {
+      background-image:
+        linear-gradient(rgba(56,189,248,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.07) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .no-select {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .question-mono {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    .carry-small {
+      min-height: 20px;
+      font-size: 0.85rem;
+      line-height: 1rem;
+    }
+
+    .digit-box {
+      width: 44px;
+      height: 52px;
+    }
+
+    @media (min-width: 768px) {
+      .digit-box {
+        width: 54px;
+        height: 62px;
+      }
+    }
+
+    .division-cell {
+      width: 44px;
+      height: 52px;
+    }
+
+    @media (min-width: 768px) {
+      .division-cell {
+        width: 50px;
+        height: 58px;
+      }
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    /******************************************************************
+     * constants/appConfig
+     ******************************************************************/
+    const TOPICS = [
+      { id: 'add', label: 'Tambah', icon: '➕', color: 'bg-pink-400' },
+      { id: 'subtract', label: 'Tolak', icon: '➖', color: 'bg-blue-400' },
+      { id: 'multiply', label: 'Darab', icon: '✖️', color: 'bg-mint-400' },
+      { id: 'divide', label: 'Bahagi', icon: '➗', color: 'bg-purple-400' }
+    ];
+
+    const LEVELS = [
+      { id: 'easy', label: 'Mudah' },
+      { id: 'medium', label: 'Sederhana' },
+      { id: 'pro', label: 'Pro' }
+    ];
+
+    const QUESTION_COUNTS = [10, 20, 50];
+
+    const STORAGE_KEYS = {
+      SETTINGS: 'cerdik_matematik_settings',
+      BEST: 'cerdik_matematik_best_scores',
+      HISTORY: 'cerdik_matematik_history'
+    };
+
+    /******************************************************************
+     * utils/storage
+     ******************************************************************/
+    const storage = {
+      get(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch {
+          return fallback;
+        }
+      },
+      set(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {}
+      }
+    };
+
+    /******************************************************************
+     * utils/helpers
+     ******************************************************************/
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function padDigits(num) {
+      return String(num).split('');
+    }
+
+    function digitsReversed(num) {
+      return String(num).split('').reverse();
+    }
+
+    function countDigits(n) {
+      return String(Math.abs(n)).length;
+    }
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function motivationalMessage(percent) {
+      if (percent === 100) return 'Hebat! Semua betul!';
+      if (percent >= 80) return 'Bagus! Kamu sangat cerdik!';
+      if (percent >= 60) return 'Baik! Teruskan usaha!';
+      return 'Cuba lagi! Kamu pasti boleh!';
+    }
+
+    function questionKey(q) {
+      return `${q.topic}|${q.level}|${q.a}|${q.b}|${q.operator}`;
+    }
+
+    function getOperationResult(a, b, topic) {
+      switch (topic) {
+        case 'add': return a + b;
+        case 'subtract': return a - b;
+        case 'multiply': return a * b;
+        case 'divide': return Math.floor(a / b);
+        default: return 0;
+      }
+    }
+
+    /******************************************************************
+     * utils/audio
+     ******************************************************************/
+    function playTone(type = 'correct') {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'correct') {
+          osc.frequency.setValueAtTime(660, ctx.currentTime);
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.001, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.24);
+        } else {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(280, ctx.currentTime);
+          osc.frequency.setValueAtTime(180, ctx.currentTime + 0.16);
+          gain.gain.setValueAtTime(0.001, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.14, ctx.currentTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.20);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.22);
+        }
+      } catch {}
+    }
+
+    /******************************************************************
+     * logic/generator
+     ******************************************************************/
+    function generateAddition(level) {
+      let a, b;
+      if (level === 'easy') {
+        a = randInt(10, 59);
+        b = randInt(1, 29);
+      } else if (level === 'medium') {
+        a = randInt(20, 99);
+        b = randInt(20, 99);
+      } else {
+        a = randInt(100, 999);
+        b = randInt(100, 999);
+      }
+
+      const result = a + b;
+      const carryMap = getAdditionCarryMap(a, b);
+
+      return {
+        topic: 'add',
+        operator: '+',
+        a,
+        b,
+        answer: String(result),
+        answerDigitsReversed: digitsReversed(result),
+        verticalDigits: Math.max(countDigits(a), countDigits(b), countDigits(result)),
+        carryMap,
+        borrowMap: [],
+        meta: {}
+      };
+    }
+
+    function getAdditionCarryMap(a, b) {
+      const aDigits = String(a).split('').reverse().map(Number);
+      const bDigits = String(b).split('').reverse().map(Number);
+      const len = Math.max(aDigits.length, bDigits.length);
+      const carryMap = Array(len).fill('');
+
+      let carry = 0;
+      for (let i = 0; i < len; i++) {
+        const sum = (aDigits[i] || 0) + (bDigits[i] || 0) + carry;
+        const nextCarry = sum >= 10 ? 1 : 0;
+        carryMap[i + 1] = nextCarry ? '1' : '';
+        carry = nextCarry;
+      }
+      return carryMap;
+    }
+
+    function generateSubtraction(level) {
+      let a, b;
+      if (level === 'easy') {
+        a = randInt(20, 99);
+        b = randInt(1, a - 1);
+      } else if (level === 'medium') {
+        a = randInt(50, 199);
+        b = randInt(20, a - 1);
+      } else {
+        a = randInt(200, 999);
+        b = randInt(100, a - 1);
+      }
+
+      const result = a - b;
+      const borrowMap = getBorrowMap(a, b);
+
+      return {
+        topic: 'subtract',
+        operator: '-',
+        a,
+        b,
+        answer: String(result),
+        answerDigitsReversed: digitsReversed(result),
+        verticalDigits: Math.max(countDigits(a), countDigits(b), countDigits(result)),
+        carryMap: [],
+        borrowMap,
+        meta: {}
+      };
+    }
+
+    function getBorrowMap(a, b) {
+      const aDigits = String(a).split('').map(Number);
+      const bDigits = String(b).split('').map(Number);
+      const len = Math.max(aDigits.length, bDigits.length);
+      const top = Array(len).fill(0);
+      const bottom = Array(len).fill(0);
+
+      for (let i = 0; i < aDigits.length; i++) {
+        top[len - aDigits.length + i] = aDigits[i];
+      }
+      for (let i = 0; i < bDigits.length; i++) {
+        bottom[len - bDigits.length + i] = bDigits[i];
+      }
+
+      const borrowMap = Array(len).fill('');
+      const workingTop = [...top];
+
+      for (let i = len - 1; i >= 0; i--) {
+        if (workingTop[i] < bottom[i]) {
+          let j = i - 1;
+          while (j >= 0 && workingTop[j] === 0) {
+            workingTop[j] = 9;
+            j--;
+          }
+          if (j >= 0) {
+            workingTop[j] -= 1;
+            workingTop[i] += 10;
+            borrowMap[i] = '1';
+          }
+        }
+      }
+
+      return borrowMap;
+    }
+
+    function generateMultiplication(level) {
+      let a, b;
+      if (level === 'easy') {
+        a = randInt(2, 9);
+        b = randInt(2, 9);
+      } else if (level === 'medium') {
+        a = randInt(10, 99);
+        b = randInt(2, 9);
+      } else {
+        a = randInt(10, 99);
+        b = randInt(10, 99);
+      }
+
+      const result = a * b;
+      const steps = getMultiplicationSteps(a, b);
+
+      return {
+        topic: 'multiply',
+        operator: '×',
+        a,
+        b,
+        answer: String(result),
+        answerDigitsReversed: digitsReversed(result),
+        verticalDigits: Math.max(countDigits(a), countDigits(b), countDigits(result)),
+        carryMap: [],
+        borrowMap: [],
+        meta: { steps }
+      };
+    }
+
+    function getMultiplicationSteps(a, b) {
+      const bDigits = String(b).split('').reverse().map(Number);
+      return bDigits.map((digit, idx) => ({
+        digit,
+        partial: a * digit,
+        shifted: String(a * digit) + '0'.repeat(idx)
+      }));
+    }
+
+    function generateDivision(level) {
+      let divisor, quotient, remainder = 0, dividend;
+
+      if (level === 'easy') {
+        divisor = randInt(2, 9);
+        quotient = randInt(2, 20);
+        remainder = 0;
+      } else if (level === 'medium') {
+        divisor = randInt(2, 9);
+        quotient = randInt(10, 99);
+        remainder = randInt(0, divisor - 1);
+      } else {
+        divisor = randInt(2, 12);
+        quotient = randInt(20, 99);
+        remainder = randInt(0, divisor - 1);
+      }
+
+      dividend = divisor * quotient + remainder;
+      const divisionData = buildLongDivisionData(dividend, divisor);
+
+      return {
+        topic: 'divide',
+        operator: '÷',
+        a: dividend,
+        b: divisor,
+        answer: String(divisionData.quotient),
+        remainder: divisionData.remainder,
+        answerDigitsReversed: digitsReversed(divisionData.quotient),
+        verticalDigits: Math.max(countDigits(dividend), countDigits(divisor)),
+        carryMap: [],
+        borrowMap: [],
+        meta: { divisionData }
+      };
+    }
+
+    function buildLongDivisionData(dividend, divisor) {
+      const digits = String(dividend).split('').map(Number);
+      let current = 0;
+      let quotientDigits = [];
+      let steps = [];
+
+      for (let i = 0; i < digits.length; i++) {
+        current = current * 10 + digits[i];
+        let q = Math.floor(current / divisor);
+        if (quotientDigits.length > 0 || q > 0) {
+          quotientDigits.push(q);
+        } else if (i === digits.length - 1) {
+          quotientDigits.push(0);
+        }
+
+        const product = (quotientDigits.length > 0) ? q * divisor : 0;
+        const remainder = current - product;
+
+        steps.push({
+          broughtDown: current,
+          quotientDigit: q,
+          product,
+          remainder
+        });
+
+        current = remainder;
+      }
+
+      const quotient = quotientDigits.join('') || '0';
+
+      return {
+        quotient,
+        remainder: current,
+        steps
+      };
+    }
+
+    function generateQuestion(topic, level) {
+      switch (topic) {
+        case 'add': return generateAddition(level);
+        case 'subtract': return generateSubtraction(level);
+        case 'multiply': return generateMultiplication(level);
+        case 'divide': return generateDivision(level);
+        default: return generateAddition(level);
+      }
+    }
+
+    function generateUniqueQuestions(topic, level, count) {
+      const unique = new Set();
+      const results = [];
+      let tries = 0;
+      const maxTries = count * 100;
+
+      while (results.length < count && tries < maxTries) {
+        const q = generateQuestion(topic, level);
+        const key = questionKey(q);
+
+        if (!unique.has(key)) {
+          unique.add(key);
+          results.push(q);
+        }
+        tries++;
+      }
+
+      return results;
+    }
+
+    /******************************************************************
+     * hooks/useTimer
+     ******************************************************************/
+    function useTimer(active) {
+      const [seconds, setSeconds] = useState(0);
+
+      useEffect(() => {
+        if (!active) return;
+        const id = setInterval(() => {
+          setSeconds(s => s + 1);
+        }, 1000);
+        return () => clearInterval(id);
+      }, [active]);
+
+      const reset = () => setSeconds(0);
+
+      return { seconds, reset };
+    }
+
+    /******************************************************************
+     * hooks/useGame
+     ******************************************************************/
+    function useGame() {
+      const savedSettings = storage.get(STORAGE_KEYS.SETTINGS, {
+        topic: 'add',
+        level: 'easy',
+        count: 10
+      });
+
+      const [screen, setScreen] = useState('home');
+      const [settings, setSettings] = useState(savedSettings);
+      const [questions, setQuestions] = useState([]);
+      const [index, setIndex] = useState(0);
+      const [correct, setCorrect] = useState(0);
+      const [wrong, setWrong] = useState(0);
+      const [feedback, setFeedback] = useState(null);
+      const [resultPulse, setResultPulse] = useState(false);
+      const [sessionStarted, setSessionStarted] = useState(false);
+
+      const { seconds, reset } = useTimer(sessionStarted && screen === 'quiz');
+
+      useEffect(() => {
+        storage.set(STORAGE_KEYS.SETTINGS, settings);
+      }, [settings]);
+
+      const currentQuestion = questions[index] || null;
+      const progress = questions.length ? ((index) / questions.length) * 100 : 0;
+
+      function startGame() {
+        const qs = generateUniqueQuestions(settings.topic, settings.level, settings.count);
+        setQuestions(qs);
+        setIndex(0);
+        setCorrect(0);
+        setWrong(0);
+        setFeedback(null);
+        setResultPulse(false);
+        reset();
+        setSessionStarted(true);
+        setScreen('quiz');
+      }
+
+      function submitAnswer(answerObj) {
+        if (!currentQuestion) return;
+
+        let isCorrect = false;
+
+        if (currentQuestion.topic === 'divide') {
+          const quotientCorrect = String(answerObj.quotient || '') === String(currentQuestion.answer);
+          const remainderCorrect = Number(answerObj.remainder || 0) === Number(currentQuestion.remainder || 0);
+          isCorrect = quotientCorrect && remainderCorrect;
+        } else {
+          isCorrect = String(answerObj.value || '') === String(currentQuestion.answer);
+        }
+
+        if (isCorrect) {
+          setCorrect(v => v + 1);
+          setFeedback({ type: 'correct', text: 'Betul! Hebat!' });
+          playTone('correct');
+        } else {
+          setWrong(v => v + 1);
+          setFeedback({
+            type: 'wrong',
+            text: currentQuestion.topic === 'divide'
+              ? `Jawapan betul: ${currentQuestion.answer} baki ${currentQuestion.remainder}`
+              : `Jawapan betul: ${currentQuestion.answer}`
+          });
+          playTone('wrong');
+        }
+
+        setResultPulse(true);
+        setTimeout(() => setResultPulse(false), 350);
+
+        setTimeout(() => {
+          if (index + 1 < questions.length) {
+            setIndex(i => i + 1);
+            setFeedback(null);
+          } else {
+            finishGame(isCorrect ? correct + 1 : correct, isCorrect ? wrong : wrong + 1);
+          }
+        }, 900);
+      }
+
+      function finishGame(finalCorrect, finalWrong) {
+        const total = questions.length || 1;
+        const percent = Math.round((finalCorrect / total) * 100);
+        const record = {
+          topic: settings.topic,
+          level: settings.level,
+          count: settings.count,
+          correct: finalCorrect,
+          wrong: finalWrong,
+          percent,
+          time: seconds,
+          date: new Date().toISOString()
+        };
+
+        const history = storage.get(STORAGE_KEYS.HISTORY, []);
+        storage.set(STORAGE_KEYS.HISTORY, [record, ...history].slice(0, 20));
+
+        const best = storage.get(STORAGE_KEYS.BEST, {});
+        const bestKey = `${settings.topic}_${settings.level}_${settings.count}`;
+        const old = best[bestKey];
+
+        if (!old || percent > old.percent || (percent === old.percent && seconds < old.time)) {
+          best[bestKey] = { percent, time: seconds };
+          storage.set(STORAGE_KEYS.BEST, best);
+        }
+
+        setScreen('result');
+        setSessionStarted(false);
+      }
+
+      function goHome() {
+        setScreen('home');
+        setSessionStarted(false);
+      }
+
+      return {
+        screen,
+        setScreen,
+        settings,
+        setSettings,
+        questions,
+        currentQuestion,
+        index,
+        correct,
+        wrong,
+        feedback,
+        progress,
+        seconds,
+        startGame,
+        submitAnswer,
+        goHome,
+        resultPulse
+      };
+    }
+
+    /******************************************************************
+     * components/UI
+     ******************************************************************/
+    function Card({ children, className = '' }) {
+      return (
+        <div className={`bg-white/90 backdrop-blur rounded-3xl shadow-lg border border-white/70 ${className}`}>
+          {children}
+        </div>
+      );
+    }
+
+    function PillButton({ active, onClick, children, color = 'purple' }) {
+      const activeStyles = {
+        purple: 'bg-brand-purple text-white shadow-lg',
+        pink: 'bg-brand-pink text-white shadow-lg',
+        blue: 'bg-brand-blue text-white shadow-lg',
+        mint: 'bg-brand-mint text-white shadow-lg',
+        yellow: 'bg-brand-yellow text-brand-ink shadow-lg'
+      };
+
+      return (
+        <button
+          onClick={onClick}
+          className={[
+            'px-4 py-3 rounded-2xl text-base md:text-lg font-extrabold transition-all duration-200',
+            active ? activeStyles[color] : 'bg-white text-brand-ink border border-slate-200 hover:bg-slate-50'
+          ].join(' ')}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function ProgressBar({ value }) {
+      return (
+        <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-brand-mint via-brand-blue to-brand-purple transition-all duration-300"
+            style={{ width: `${Math.max(4, value)}%` }}
+          />
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * components/NumberPad
+     ******************************************************************/
+    function NumberPad({ onDigit, onDelete, onSubmit, disabled }) {
+      const keys = ['1','2','3','4','5','6','7','8','9','0'];
+
+      return (
+        <div className="grid grid-cols-3 gap-3 md:gap-4 mt-6">
+          {keys.slice(0, 9).map(key => (
+            <button
+              key={key}
+              disabled={disabled}
+              onClick={() => onDigit(key)}
+              className="h-16 md:h-20 rounded-2xl bg-gradient-to-br from-white to-sky-50 border border-sky-100 shadow-md text-2xl md:text-3xl font-black text-brand-ink active:scale-95 transition"
+            >
+              {key}
+            </button>
+          ))}
+
+          <button
+            disabled={disabled}
+            onClick={onDelete}
+            className="h-16 md:h-20 rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 border border-orange-200 shadow-md text-lg md:text-2xl font-black text-orange-700 active:scale-95 transition"
+          >
+            Padam
+          </button>
+
+          <button
+            disabled={disabled}
+            onClick={() => onDigit('0')}
+            className="h-16 md:h-20 rounded-2xl bg-gradient-to-br from-white to-sky-50 border border-sky-100 shadow-md text-2xl md:text-3xl font-black text-brand-ink active:scale-95 transition"
+          >
+            0
+          </button>
+
+          <button
+            disabled={disabled}
+            onClick={onSubmit}
+            className="h-16 md:h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-500 border border-emerald-500 shadow-md text-lg md:text-2xl font-black text-white active:scale-95 transition"
+          >
+            Hantar
+          </button>
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * components/AnswerBoxes
+     ******************************************************************/
+    function AnswerBoxes({ answerLength, inputDigits }) {
+      const boxes = Array.from({ length: answerLength }, (_, i) => {
+        const value = inputDigits[i] || '';
+        return value;
+      });
+
+      return (
+        <div className="flex justify-end gap-2 mt-3">
+          {boxes.map((digit, idx) => (
+            <div
+              key={idx}
+              className="digit-box rounded-2xl bg-yellow-50 border-2 border-dashed border-yellow-300 flex items-center justify-center text-2xl md:text-3xl font-black text-brand-ink shadow-sm"
+            >
+              {digit}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * components/VerticalMathQuestion
+     ******************************************************************/
+    function VerticalMathQuestion({ question, inputDigits }) {
+      const { topic, a, b, operator, carryMap, borrowMap } = question;
+      const maxLen = Math.max(String(a).length, String(b).length, String(question.answer).length);
+      const aStr = String(a).padStart(maxLen, ' ');
+      const bStr = String(b).padStart(maxLen, ' ');
+
+      return (
+        <div className="flex justify-center">
+          <div className="question-mono">
+            {(topic === 'add' || topic === 'subtract') && (
+              <div className="inline-block">
+                <div className="flex justify-end carry-small text-brand-pink font-black">
+                  {Array.from({ length: maxLen + 1 }, (_, i) => (
+                    <div key={i} className="w-8 md:w-10 text-center">
+                      {carryMap?.[maxLen - i] || borrowMap?.[i - 1] || ''}
+                    </div>
+                  ))}
+                </div>
+
+                {topic === 'subtract' && borrowMap?.some(Boolean) && (
+                  <div className="text-center text-sm md:text-base text-blue-600 font-bold mb-2 animate-pulse">
+                    Pinjam nombor di atas untuk tolak dengan betul
+                  </div>
+                )}
+
+                <div className="flex justify-end text-4xl md:text-5xl font-black tracking-wide">
+                  {aStr.split('').map((ch, i) => (
+                    <div key={i} className="w-8 md:w-10 text-center">
+                      {ch === ' ' ? '' : ch}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end text-4xl md:text-5xl font-black tracking-wide">
+                  <div className="w-8 md:w-10 text-center">{operator}</div>
+                  {bStr.split('').map((ch, i) => (
+                    <div key={i} className="w-8 md:w-10 text-center">
+                      {ch === ' ' ? '' : ch}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-b-4 border-brand-ink mt-2 mb-2"></div>
+
+                <AnswerBoxes answerLength={String(question.answer).length} inputDigits={inputDigits} />
+                <div className="text-right mt-2 text-sm md:text-base text-slate-500 font-bold">
+                  Isi jawapan dari kanan ke kiri
+                </div>
+              </div>
+            )}
+
+            {topic === 'multiply' && (
+              <div className="inline-block">
+                <div className="flex justify-end text-4xl md:text-5xl font-black tracking-wide">
+                  {String(a).padStart(maxLen, ' ').split('').map((ch, i) => (
+                    <div key={i} className="w-8 md:w-10 text-center">
+                      {ch === ' ' ? '' : ch}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end text-4xl md:text-5xl font-black tracking-wide">
+                  <div className="w-8 md:w-10 text-center">{operator}</div>
+                  {String(b).padStart(maxLen, ' ').split('').map((ch, i) => (
+                    <div key={i} className="w-8 md:w-10 text-center">
+                      {ch === ' ' ? '' : ch}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-b-4 border-brand-ink mt-2 mb-2"></div>
+
+                <AnswerBoxes answerLength={String(question.answer).length} inputDigits={inputDigits} />
+
+                {question.meta?.steps?.length > 1 && (
+                  <div className="mt-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-100">
+                    <div className="text-sm md:text-base font-extrabold text-emerald-700 mb-2">
+                      Langkah bentuk lazim
+                    </div>
+                    <div className="space-y-1 text-right text-lg md:text-xl font-black text-emerald-800">
+                      {question.meta.steps.map((step, idx) => (
+                        <div key={idx}>
+                          {String(step.partial) + '0'.repeat(idx)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-right mt-2 text-sm md:text-base text-slate-500 font-bold">
+                  Isi jawapan dari kanan ke kiri
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * components/DivisionQuestion
+     ******************************************************************/
+    function DivisionQuestion({ question, quotientDigits, remainderDigits }) {
+      const dividend = String(question.a);
+      const divisor = String(question.b);
+      const qLen = String(question.answer).length;
+
+      return (
+        <div className="flex flex-col items-center">
+          <div className="text-center text-sm md:text-base text-slate-500 font-bold mb-3">
+            Isi hasil bahagi dahulu, kemudian baki jika ada
+          </div>
+
+          <div className="flex items-start question-mono">
+            <div className="pt-14 md:pt-16 pr-2 text-3xl md:text-4xl font-black">
+              {divisor}
+            </div>
+
+            <div className="relative">
+              <div className="flex justify-start ml-4 mb-1">
+                {Array.from({ length: qLen }, (_, idx) => (
+                  <div
+                    key={idx}
+                    className="digit-box rounded-2xl bg-purple-50 border-2 border-dashed border-purple-300 flex items-center justify-center text-2xl md:text-3xl font-black text-brand-ink mx-1"
+                  >
+                    {quotientDigits[idx] || ''}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-stretch">
+                <div className="border-l-4 border-t-4 border-brand-ink rounded-tl-xl min-h-[100px] pl-4 pr-2 pt-3">
+                  <div className="flex text-4xl md:text-5xl font-black">
+                    {dividend.split('').map((d, i) => (
+                      <div key={i} className="w-8 md:w-10 text-center">{d}</div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 w-full max-w-md">
+            <div className="text-center text-base md:text-lg font-black text-brand-purple mb-2">
+              Baki
+            </div>
+            <div className="flex justify-center gap-2">
+              <div className="digit-box rounded-2xl bg-pink-50 border-2 border-dashed border-pink-300 flex items-center justify-center text-2xl md:text-3xl font-black text-brand-ink">
+                {remainderDigits[0] || ''}
+              </div>
+              <div className="digit-box rounded-2xl bg-pink-50 border-2 border-dashed border-pink-300 flex items-center justify-center text-2xl md:text-3xl font-black text-brand-ink">
+                {remainderDigits[1] || ''}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 w-full max-w-xl p-4 rounded-2xl bg-sky-50 border border-sky-100">
+            <div className="text-sm md:text-base font-extrabold text-sky-700 mb-2">
+              Langkah long division
+            </div>
+            <div className="space-y-2 text-sm md:text-base text-sky-900 font-bold">
+              {question.meta.divisionData.steps.map((step, idx) => (
+                <div key={idx} className="bg-white rounded-xl p-3 border border-sky-100">
+                  Langkah {idx + 1}: {step.broughtDown} ÷ {question.b} = {step.quotientDigit}, tolak {step.product}, baki {step.remainder}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * screens/HomeScreen
+     ******************************************************************/
+    function HomeScreen({ settings, setSettings, startGame }) {
+      const best = storage.get(STORAGE_KEYS.BEST, {});
+      const history = storage.get(STORAGE_KEYS.HISTORY, []).slice(0, 5);
+      const bestKey = `${settings.topic}_${settings.level}_${settings.count}`;
+      const bestRecord = best[bestKey];
+
+      return (
+        <div className="min-h-screen p-4 md:p-6 math-grid-bg">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-6 md:mb-8">
+              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-full bg-white shadow-md border border-yellow-100 animate-floaty">
+                <span className="text-2xl">🧠</span>
+                <span className="title-font text-2xl md:text-3xl font-extrabold text-brand-purple">
+                  CERDIK MATEMATIK
+                </span>
+                <span className="text-2xl">✨</span>
+              </div>
+
+              <p className="mt-4 text-base md:text-xl font-bold text-slate-600 max-w-2xl mx-auto">
+                Belajar matematik sekolah rendah dengan cara yang seronok, jelas dan mesra kanak-kanak.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-5">
+              <Card className="p-5 md:p-6 lg:col-span-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-yellow flex items-center justify-center text-2xl shadow">
+                    📚
+                  </div>
+                  <div>
+                    <h2 className="title-font text-2xl md:text-3xl font-extrabold text-brand-ink">
+                      Pilih Latihan
+                    </h2>
+                    <p className="text-slate-500 font-bold">
+                      Terus masuk tanpa login
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <div className="text-lg md:text-xl font-extrabold mb-3">Topik Matematik</div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {TOPICS.map(topic => (
+                        <button
+                          key={topic.id}
+                          onClick={() => setSettings(s => ({ ...s, topic: topic.id }))}
+                          className={`rounded-3xl p-4 border transition-all shadow-sm ${
+                            settings.topic === topic.id
+                              ? 'bg-gradient-to-br from-brand-purple to-brand-blue text-white border-transparent scale-[1.02]'
+                              : 'bg-white border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="text-3xl mb-2">{topic.icon}</div>
+                          <div className="font-black text-lg">{topic.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-lg md:text-xl font-extrabold mb-3">Tahap Kesukaran</div>
+                    <div className="flex flex-wrap gap-3">
+                      {LEVELS.map(level => (
+                        <PillButton
+                          key={level.id}
+                          active={settings.level === level.id}
+                          onClick={() => setSettings(s => ({ ...s, level: level.id }))}
+                          color="pink"
+                        >
+                          {level.label}
+                        </PillButton>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-lg md:text-xl font-extrabold mb-3">Bilangan Soalan</div>
+                    <div className="flex flex-wrap gap-3">
+                      {QUESTION_COUNTS.map(count => (
+                        <PillButton
+                          key={count}
+                          active={settings.count === count}
+                          onClick={() => setSettings(s => ({ ...s, count }))}
+                          color="yellow"
+                        >
+                          {count} soalan
+                        </PillButton>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={startGame}
+                    className="w-full md:w-auto px-8 py-4 rounded-3xl bg-gradient-to-r from-brand-orange to-brand-pink text-white text-xl md:text-2xl font-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition"
+                  >
+                    Mula Sekarang 🚀
+                  </button>
+                </div>
+              </Card>
+
+              <div className="space-y-5">
+                <Card className="p-5 md:p-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-mint flex items-center justify-center text-xl">
+                      🏆
+                    </div>
+                    <h3 className="title-font text-2xl font-extrabold">Rekod Terbaik</h3>
+                  </div>
+
+                  {bestRecord ? (
+                    <div className="space-y-2 text-base md:text-lg font-bold">
+                      <div className="flex justify-between">
+                        <span>Markah</span>
+                        <span className="text-brand-purple font-black">{bestRecord.percent}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Masa</span>
+                        <span className="text-brand-blue font-black">{formatTime(bestRecord.time)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 font-bold">Belum ada rekod lagi.</div>
+                  )}
+                </Card>
+
+                <Card className="p-5 md:p-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-11 h-11 rounded-2xl bg-brand-blue flex items-center justify-center text-xl">
+                      📝
+                    </div>
+                    <h3 className="title-font text-2xl font-extrabold">Sejarah Ringkas</h3>
+                  </div>
+
+                  {history.length ? (
+                    <div className="space-y-3 max-h-72 overflow-auto scrollbar-hide">
+                      {history.map((item, idx) => (
+                        <div key={idx} className="rounded-2xl bg-slate-50 border border-slate-100 p-3">
+                          <div className="font-black text-brand-ink">
+                            {TOPICS.find(t => t.id === item.topic)?.label} - {LEVELS.find(l => l.id === item.level)?.label}
+                          </div>
+                          <div className="text-sm text-slate-600 font-bold">
+                            {item.correct}/{item.count} betul - {item.percent}% - {formatTime(item.time)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 font-bold">Tiada sejarah lagi.</div>
+                  )}
+                </Card>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * screens/QuizScreen
+     ******************************************************************/
+    function QuizScreen({
+      currentQuestion,
+      index,
+      total,
+      correct,
+      wrong,
+      progress,
+      seconds,
+      submitAnswer,
+      goHome,
+      feedback,
+      resultPulse
+    }) {
+      const [inputDigits, setInputDigits] = useState([]);
+      const [quotientDigits, setQuotientDigits] = useState([]);
+      const [remainderDigits, setRemainderDigits] = useState([]);
+      const [focusPart, setFocusPart] = useState('quotient');
+
+      useEffect(() => {
+        setInputDigits([]);
+        setQuotientDigits([]);
+        setRemainderDigits([]);
+        setFocusPart('quotient');
+      }, [currentQuestion]);
+
+      if (!currentQuestion) return null;
+
+      const isDivision = currentQuestion.topic === 'divide';
+      const answerLength = String(currentQuestion.answer).length;
+
+      function handleDigit(d) {
+        if (feedback) return;
+
+        if (isDivision) {
+          if (focusPart === 'quotient') {
+            if (quotientDigits.length < answerLength) {
+              setQuotientDigits(prev => [...prev, d]);
+              if (quotientDigits.length + 1 >= answerLength) {
+                setFocusPart('remainder');
+              }
+            }
+          } else {
+            if (remainderDigits.length < 2) {
+              setRemainderDigits(prev => [...prev, d]);
+            }
+          }
+          return;
+        }
+
+        if (inputDigits.length < String(currentQuestion.answer).length) {
+          setInputDigits(prev => [...prev, d]);
+        }
+      }
+
+      function handleDelete() {
+        if (feedback) return;
+
+        if (isDivision) {
+          if (focusPart === 'remainder' && remainderDigits.length > 0) {
+            setRemainderDigits(prev => prev.slice(0, -1));
+          } else if (focusPart === 'remainder' && remainderDigits.length === 0) {
+            setFocusPart('quotient');
+            setQuotientDigits(prev => prev.slice(0, -1));
+          } else {
+            setQuotientDigits(prev => prev.slice(0, -1));
+          }
+          return;
+        }
+
+        setInputDigits(prev => prev.slice(0, -1));
+      }
+
+      function handleSubmit() {
+        if (feedback) return;
+
+        if (isDivision) {
+          const quotient = quotientDigits.join('');
+          const remainder = remainderDigits.join('') || '0';
+          if (!quotient) return;
+          submitAnswer({ quotient, remainder });
+          return;
+        }
+
+        const typedNormal = [...inputDigits].reverse().join('');
+        if (!typedNormal) return;
+        submitAnswer({ value: typedNormal });
+      }
+
+      return (
+        <div className="min-h-screen p-4 md:p-6 math-grid-bg">
+          <div className="max-w-5xl mx-auto">
+            <div className="flex flex-col gap-4 mb-5">
+              <Card className="p-4 md:p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <div className="title-font text-2xl md:text-3xl font-extrabold text-brand-purple">
+                      Soalan {index + 1} / {total}
+                    </div>
+                    <div className="text-slate-500 font-bold">
+                      Betul: {correct} | Salah: {wrong} | Masa: {formatTime(seconds)}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={goHome}
+                    className="px-5 py-3 rounded-2xl bg-white border border-slate-200 font-black text-slate-700 hover:bg-slate-50"
+                  >
+                    Kembali
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  <ProgressBar value={progress} />
+                </div>
+              </Card>
+            </div>
+
+            <Card className={`p-5 md:p-8 transition-all ${resultPulse ? 'animate-pop' : ''} ${feedback?.type === 'wrong' ? 'animate-shake' : ''}`}>
+              <div className="text-center mb-5">
+                <div className="title-font text-2xl md:text-4xl font-extrabold text-brand-ink">
+                  Selesaikan soalan ini
+                </div>
+              </div>
+
+              {!isDivision ? (
+                <VerticalMathQuestion question={currentQuestion} inputDigits={inputDigits} />
+              ) : (
+                <DivisionQuestion
+                  question={currentQuestion}
+                  quotientDigits={quotientDigits}
+                  remainderDigits={remainderDigits}
+                />
+              )}
+
+              {isDivision && (
+                <div className="mt-4 text-center">
+                  <span className={`inline-block px-4 py-2 rounded-full text-sm md:text-base font-black ${
+                    focusPart === 'quotient'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-pink-100 text-pink-700'
+                  }`}>
+                    {focusPart === 'quotient' ? 'Sedang isi hasil bahagi' : 'Sedang isi baki'}
+                  </span>
+                </div>
+              )}
+
+              {feedback && (
+                <div className={`mt-6 rounded-2xl p-4 text-center font-black text-lg md:text-2xl ${
+                  feedback.type === 'correct'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-rose-100 text-rose-700'
+                }`}>
+                  {feedback.text}
+                </div>
+              )}
+
+              <NumberPad
+                onDigit={handleDigit}
+                onDelete={handleDelete}
+                onSubmit={handleSubmit}
+                disabled={!!feedback}
+              />
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * screens/ResultScreen
+     ******************************************************************/
+    function ResultScreen({ settings, questions, correct, wrong, seconds, goHome, restart }) {
+      const total = questions.length || 1;
+      const percent = Math.round((correct / total) * 100);
+      const message = motivationalMessage(percent);
+      const topicLabel = TOPICS.find(t => t.id === settings.topic)?.label || '';
+      const levelLabel = LEVELS.find(l => l.id === settings.level)?.label || '';
+
+      return (
+        <div className="min-h-screen p-4 md:p-6 math-grid-bg flex items-center">
+          <div className="max-w-3xl mx-auto w-full">
+            <Card className="p-6 md:p-10 text-center animate-pop">
+              <div className="text-6xl md:text-7xl mb-3">
+                {percent >= 80 ? '🎉' : percent >= 60 ? '👏' : '🌟'}
+              </div>
+
+              <h1 className="title-font text-4xl md:text-6xl font-extrabold text-brand-purple mb-2">
+                {message}
+              </h1>
+
+              <p className="text-lg md:text-2xl font-bold text-slate-600 mb-6">
+                {topicLabel} - {levelLabel}
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="rounded-3xl bg-emerald-50 border border-emerald-100 p-4">
+                  <div className="text-sm md:text-base font-bold text-emerald-700">Betul</div>
+                  <div className="text-3xl md:text-4xl font-black text-emerald-800">{correct}</div>
+                </div>
+
+                <div className="rounded-3xl bg-rose-50 border border-rose-100 p-4">
+                  <div className="text-sm md:text-base font-bold text-rose-700">Salah</div>
+                  <div className="text-3xl md:text-4xl font-black text-rose-800">{wrong}</div>
+                </div>
+
+                <div className="rounded-3xl bg-sky-50 border border-sky-100 p-4">
+                  <div className="text-sm md:text-base font-bold text-sky-700">Markah</div>
+                  <div className="text-3xl md:text-4xl font-black text-sky-800">{percent}%</div>
+                </div>
+
+                <div className="rounded-3xl bg-yellow-50 border border-yellow-100 p-4">
+                  <div className="text-sm md:text-base font-bold text-yellow-700">Masa</div>
+                  <div className="text-3xl md:text-4xl font-black text-yellow-800">{formatTime(seconds)}</div>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row justify-center gap-4">
+                <button
+                  onClick={restart}
+                  className="px-8 py-4 rounded-3xl bg-gradient-to-r from-brand-orange to-brand-pink text-white text-xl font-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition"
+                >
+                  Main Lagi 🔁
+                </button>
+
+                <button
+                  onClick={goHome}
+                  className="px-8 py-4 rounded-3xl bg-white border border-slate-200 text-brand-ink text-xl font-black shadow hover:bg-slate-50 transition"
+                >
+                  Menu Utama 🏠
+                </button>
+              </div>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    /******************************************************************
+     * app/App
+     ******************************************************************/
+    function App() {
+      const game = useGame();
+
+      if (game.screen === 'home') {
+        return (
+          <HomeScreen
+            settings={game.settings}
+            setSettings={game.setSettings}
+            startGame={game.startGame}
+          />
+        );
+      }
+
+      if (game.screen === 'quiz') {
+        return (
+          <QuizScreen
+            currentQuestion={game.currentQuestion}
+            index={game.index}
+            total={game.questions.length}
+            correct={game.correct}
+            wrong={game.wrong}
+            progress={game.progress}
+            seconds={game.seconds}
+            submitAnswer={game.submitAnswer}
+            goHome={game.goHome}
+            feedback={game.feedback}
+            resultPulse={game.resultPulse}
+          />
+        );
+      }
+
+      if (game.screen === 'result') {
+        return (
+          <ResultScreen
+            settings={game.settings}
+            questions={game.questions}
+            correct={game.correct}
+            wrong={game.wrong}
+            seconds={game.seconds}
+            goHome={game.goHome}
+            restart={game.startGame}
+          />
+        );
+      }
+
+      return null;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
